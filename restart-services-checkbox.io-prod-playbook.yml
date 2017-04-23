@@ -1,0 +1,24 @@
+---
+- hosts: "{{ serverGroupName }}"
+  become: yes
+  # no pre-tasks required because power off will kill all the services anyway
+
+  vars:
+    nodejsapp_port: 3002
+    homeDir: /home/vagrant
+    appDir: checkbox.io/server-side/site
+
+  tasks:
+    - name: Restart nginx
+      service: name=nginx state=restarted
+
+    - name: Start Node.js app.
+      command: forever start server.js {{ nodejsapp_port }}
+      args:
+        chdir: "{{ homeDir }}/{{ appDir }}"
+
+
+
+
+
+# ansible-playbook -i inventory restart-services-checkbox.io-prod-playbook.yml -e serverGroupName=checkbox-io-prod1

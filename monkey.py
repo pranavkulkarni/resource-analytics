@@ -9,7 +9,8 @@ from subprocess import call
 instance_sizes = [ "512mb", "1gb", "2gb", "4gb", "8gb", "16gb", "32gb", "48gb", "64gb"]
 headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + os.environ["DO_API_TOKEN"] }
 steady_state_instance_size = '' 
-droplet_ids_map = dict()
+droplet_ids_map = dict() # ip -> id
+droplet_names_map = dict() # ip -> name
 redis = redis.Redis(
     host = '127.0.0.1',
     port = 6379)
@@ -18,13 +19,14 @@ redis = redis.Redis(
 
 
 def fetch_all_droplet_ids():
-    global droplet_ids_map, steady_state_instance_size
+    global droplet_ids_map, droplet_names_map, steady_state_instance_size
     print('\nFetching droplet ids of checkbox.io app servers...\n');
     r = requests.get("https://api.digitalocean.com/v2/droplets/", headers = headers);
     for droplet in json.loads(r.text)['droplets']:
         #print droplet['id'], droplet['name'], droplet['size_slug'], droplet['networks']['v4'][0]['ip_address']
         if 'checkbox-io-prod' in droplet['name']:
             droplet_ids_map[droplet['networks']['v4'][0]['ip_address']] = droplet['id']
+            droplet_names_map[droplet['networks']['v4'][0]['ip_address']] = droplet['name']
             if steady_state_instance_size == '':
                 steady_state_instance_size = droplet['size_slug']
             
@@ -99,10 +101,10 @@ def poweron_server(target_droplet_id):
 
 
 def restart_services_server(target_server_ip):
-    call(["ansible-playbook", "-i", "inventory", "test.yml"])
     print "Restarting services on " + str(target_server_ip)
+    call([ "ansible-playbook", "-i", "inventory", "restart-services-checkbox.io-prod-playbook.yml", "-e", "serverGroupName=" + droplet_names_map[target_server_ip] ])
     
-
+    
 def collect_metrics():
     print "\nRunning experiments and collecting metrics.\n"
     
@@ -131,7 +133,7 @@ def main():
     collect_metrics()
     time.sleep(15)
     
-    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) - 2] # TODO handle first index
+    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) - 1] # TODO handle first index
     for i in range(number_active_prod_servers):
         downsize(new_size)
 
