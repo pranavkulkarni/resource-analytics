@@ -7,10 +7,7 @@ import time
 from subprocess import call
 
 instance_sizes = [ "512mb", "1gb", "2gb", "4gb", "8gb", "16gb", "32gb", "48gb", "64gb"]
-headers = {
-  'Content-Type': 'application/json',
-  'Authorization': 'Bearer ' + os.environ["DO_API_TOKEN"]
-}
+headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + os.environ["DO_API_TOKEN"] }
 steady_state_instance_size = '' 
 droplet_ids_map = dict()
 redis = redis.Redis(
@@ -119,7 +116,7 @@ def main():
 		print "Usage: python monkey.py"
 		exit(1)
     print('\nResource Analytics Monkey : STARTED\n');
-    '''
+    
     global headers, redis
     fetch_all_droplet_ids()
     number_active_prod_servers = len(droplet_ids_map)
@@ -142,7 +139,7 @@ def main():
     time.sleep(15)
 
     email_report()
-    '''
+    
     restart_services_server("123")
     print('\nResource Analytics Monkey : COMPLETED\n');
 
