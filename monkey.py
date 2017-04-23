@@ -47,10 +47,9 @@ def upsize(new_size):
     target_server_ip = pop_server_redis()
     target_droplet_id = droplet_ids_map[target_server_ip]
     droplet_details = poweroff_server(target_droplet_id)
-    
     resize(target_droplet_id, new_size)
     poweron_server(target_droplet_id)
-    # TODO: CALL ansible playbook to restart services in order
+    time.sleep(45)
     restart_services_server(target_server_ip)
     push_server_redis(target_server_ip)
 
@@ -60,10 +59,9 @@ def downsize(new_size):
     target_server_ip = pop_server_redis()
     target_droplet_id = droplet_ids_map[target_server_ip]
     droplet_details = poweroff_server(target_droplet_id)
-    
     resize(target_droplet_id, new_size)
     poweron_server(target_droplet_id)
-    # TODO: CALL ansible playbook to restart services in order
+    time.sleep(45)
     restart_services_server(target_server_ip)
     push_server_redis(target_server_ip)
 
@@ -79,6 +77,7 @@ def push_server_redis(target_server_ip):
 def poweroff_server(target_droplet_id):
     payload = { 'type': 'power_off' }
     r = requests.post("https://api.digitalocean.com/v2/droplets/" + str(target_droplet_id) + "/actions", headers = headers, json = payload);
+    print r.text
     action_id = json.loads(r.text)['action']['id']
     while True:
         time.sleep(2);
@@ -133,6 +132,10 @@ def main():
     collect_metrics()
     time.sleep(15)
     
+    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size)] # TODO handle first index
+    for i in range(number_active_prod_servers):
+        downsize(new_size)
+
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) - 1] # TODO handle first index
     for i in range(number_active_prod_servers):
         downsize(new_size)
