@@ -4,6 +4,7 @@ import os
 import json
 import redis
 import time
+from subprocess import call
 
 instance_sizes = [ "512mb", "1gb", "2gb", "4gb", "8gb", "16gb", "32gb", "48gb", "64gb"]
 headers = {
@@ -101,6 +102,7 @@ def poweron_server(target_droplet_id):
 
 
 def restart_services_server(target_server_ip):
+    call(["ansible-playbook", "-i", "inventory", "test.yml"])
     print "Restarting services on " + str(target_server_ip)
     
 
@@ -117,6 +119,7 @@ def main():
 		print "Usage: python monkey.py"
 		exit(1)
     print('\nResource Analytics Monkey : STARTED\n');
+    '''
     global headers, redis
     fetch_all_droplet_ids()
     number_active_prod_servers = len(droplet_ids_map)
@@ -139,7 +142,8 @@ def main():
     time.sleep(15)
 
     email_report()
-    
+    '''
+    restart_services_server("123")
     print('\nResource Analytics Monkey : COMPLETED\n');
 
 if __name__ == '__main__':
