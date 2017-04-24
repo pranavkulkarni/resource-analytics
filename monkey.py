@@ -5,7 +5,9 @@ import json
 import redis
 import time
 from subprocess import call
+import requests.packages.urllib3
 
+requests.packages.urllib3.disable_warnings()
 instance_sizes = [ "512mb", "1gb", "2gb", "4gb", "8gb", "16gb", "32gb", "48gb", "64gb"]
 headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + os.environ["DO_API_TOKEN"] }
 steady_state_instance_size = '' 
