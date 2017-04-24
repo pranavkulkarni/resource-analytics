@@ -141,7 +141,7 @@ def email_report():
         for k in metrics_map[key]:
             data.append([key, k, str(metrics_map[key][k])])
     body += tabulate(data, headings, tablefmt="html")
-    print body
+    print tabulate(data, headings, tablefmt="grid")
     msg.attach(MIMEText(body, 'html'))
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
@@ -163,10 +163,7 @@ def main():
     if number_active_prod_servers == 1:
         print('\nResource Analytics Monkey : ABORTED - Need more than 1 active prod server running!\n')
         exit(1)
-    
-    collect_metrics(steady_state_instance_size)
-    time.sleep(5)
-    
+        
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 2] 
     for i in range(number_active_prod_servers):
         upsize(new_size)
@@ -184,6 +181,9 @@ def main():
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size)] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
+
+    collect_metrics(steady_state_instance_size)
+    time.sleep(5)
 
     email_report()
     
