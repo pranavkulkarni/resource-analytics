@@ -7,6 +7,23 @@
     nodejsapp_port: 3002
     homeDir: /home/vagrant
     appDir: checkbox.io/server-side/site
+    mongodb_user: mongoAdmin
+    mongodb_password: mongoAdmin123
+    delay: 10
+    
+
+  pre_tasks:
+    - name: Register {{ serverGroupName }} ip address from inventory
+      set_fact: 
+        vm_ip_address: "{{ hostvars[item]['ansible_ssh_host'] }}" 
+      with_items:
+        - "{{ serverGroupName }}"
+
+    - name: Register dbserver_ip ip address from inventory
+      set_fact: 
+        dbserver_ip: "{{ hostvars[item]['ansible_ssh_host'] }}" 
+      with_items:
+        - "checkbox-io-dbserver"
 
   tasks:
     - name: Restart nginx
@@ -14,6 +31,11 @@
 
     - name: Start Node.js app.
       command: forever start server.js {{ nodejsapp_port }}
+      environment:
+        db_user: "{{ mongodb_user }}"
+        db_password: "{{ mongodb_password }}"
+        ip_address: "{{ vm_ip_address }}"
+        db_host: "{{ dbserver_ip }}"
       args:
         chdir: "{{ homeDir }}/{{ appDir }}"
 

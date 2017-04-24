@@ -55,8 +55,6 @@ def upsize(new_size):
     restart_services_server(target_server_ip)
     push_server_redis(target_server_ip)
 
-
-
 def downsize(new_size):
     target_server_ip = pop_server_redis()
     target_droplet_id = droplet_ids_map[target_server_ip]
@@ -67,10 +65,8 @@ def downsize(new_size):
     restart_services_server(target_server_ip)
     push_server_redis(target_server_ip)
 
-
 def pop_server_redis():
     return redis.lpop('prodServers')
-
 
 def push_server_redis(target_server_ip):
     redis.rpush('prodServers', target_server_ip)
@@ -124,21 +120,20 @@ def main():
     fetch_all_droplet_ids()
     number_active_prod_servers = len(droplet_ids_map)
     if number_active_prod_servers == 1:
-        print('\nResource Analytics Monkey : ABORTED - Only 1 active prod server is running!\n')
+        print('\nResource Analytics Monkey : ABORTED - Need more than 1 active prod server running!\n')
         exit(1)
     
-    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 1] # TODO handle last index
+    collect_metrics()
+    time.sleep(15)
+
+    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 2] # TODO handle last index
     for i in range(number_active_prod_servers):
         upsize(new_size)
 
     collect_metrics()
     time.sleep(15)
     
-    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size)] # TODO handle first index
-    for i in range(number_active_prod_servers):
-        downsize(new_size)
-
-    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) - 1] # TODO handle first index
+    new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 1] # TODO handle first index
     for i in range(number_active_prod_servers):
         downsize(new_size)
 
@@ -147,7 +142,6 @@ def main():
 
     email_report()
     
-    restart_services_server("123")
     print('\nResource Analytics Monkey : COMPLETED\n');
 
 if __name__ == '__main__':
