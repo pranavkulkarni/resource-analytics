@@ -140,9 +140,9 @@ def email_report():
     for key in metrics_map:
         for k in metrics_map[key]:
             data.append([key, k, str(metrics_map[key][k])])
-    body += tabulate(data, headings, tablefmt="grid")
+    body += tabulate(data, headings, tablefmt="html")
     print body
-    msg.attach(MIMEText(body, 'plain'))
+    msg.attach(MIMEText(body, 'html'))
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
     server.login(fromaddr, os.environ["EMAIL_PASSWORD"])
