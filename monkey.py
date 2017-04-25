@@ -22,6 +22,8 @@ redis = redis.Redis(
     port = 6379)
 infrastructure_ip = ''
 metrics_map = dict()
+new_relic_api_key = os.environ["NEW_RELIC_API_KEY"]
+header_new_relic = { 'X-Api-Key': new_relic_api_key }
 
 ################################################
 
@@ -113,17 +115,25 @@ def restart_services_server(target_server_ip):
     
 def collect_metrics(instance_size):
     global metrics_map
+    payload = { 'filter[name]' : 'Checkbox.io' }
     print "\nRunning experiments and collecting metrics.\n"
-    endpoint_home = '/'
-    endpoint_survey = '/api/study/create'
-    sum_of_times = 0.0
-    for i in range(1000):
-        start_time = time.time()
-        r = requests.get("http://" + infrastructure_ip  + ":8080" + endpoint_home)
-        sum_of_times += (time.time() - start_time)
-    avg_of_times = sum_of_times/1000.0
-    print("--- %s seconds ---" % (avg_of_times))
-    metrics_map[instance_size] = { endpoint_home: avg_of_times, endpoint_survey: 0.0 }
+    r = requests.get("https://api.newrelic.com/v2/applications.json", headers = header_new_relic, json = payload);
+    response_time = json.loads(r.text)["applications"][0]["application_summary"]["response_time"]
+    throughput = json.loads(r.text)["applications"][0]["application_summary"]["throughput"]
+    apdex_score = json.loads(r.text)["applications"][0]["application_summary"]["apdex_score"]
+    metrics_map[instance_size] = {"APP RESPONSE TIME" : response_time, "APP THROUGHPUT": throughput}
+
+    r = requests.get("https://api.newrelic.com/v2/key_transactions.json", headers = header_new_relic);
+    for idx, key_transaction  in enumerate(json.loads(r.text)["key_transactions"]):
+        transaction_name = key_transaction["name"]
+        transaction_response_time = key_transaction["application_summary"]["response_time"]
+        transaction_throughput= key_transaction["application_summary"]["throughput"]
+        metrics_map[instance_size]["API " + str(idx + 1)] = transaction_name
+        metrics_map[instance_size]["API " + str(idx + 1) + " RESPONSE TIME"] = transaction_response_time
+        metrics_map[instance_size]["API " + str(idx + 1) + " THROUGHPUT"] = transaction_throughput
+    
+    print "---\n"
+    print metrics_map
     
     
 def email_report():
@@ -168,22 +178,24 @@ def main():
     for i in range(number_active_prod_servers):
         upsize(new_size)
 
+    time.sleep(180)
     collect_metrics(new_size)
-    time.sleep(5)
+    
     
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 1] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
 
+    time.sleep(180)
     collect_metrics(new_size)
-    time.sleep(5)
+    
     
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size)] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
 
+    time.sleep(180)
     collect_metrics(steady_state_instance_size)
-    time.sleep(5)
 
     email_report()
     
