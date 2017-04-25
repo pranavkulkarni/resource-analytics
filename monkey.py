@@ -121,16 +121,16 @@ def collect_metrics(instance_size):
     response_time = json.loads(r.text)["applications"][0]["application_summary"]["response_time"]
     throughput = json.loads(r.text)["applications"][0]["application_summary"]["throughput"]
     apdex_score = json.loads(r.text)["applications"][0]["application_summary"]["apdex_score"]
-    metrics_map[instance_size] = {"APP RESPONSE TIME" : response_time, "APP THROUGHPUT": throughput}
+    metrics_map[instance_size] = {"app_response_time" : response_time, "app_throughput": throughput}
 
     r = requests.get("https://api.newrelic.com/v2/key_transactions.json", headers = header_new_relic);
+    api_details = dict()
     for idx, key_transaction  in enumerate(json.loads(r.text)["key_transactions"]):
         transaction_name = key_transaction["name"]
         transaction_response_time = key_transaction["application_summary"]["response_time"]
         transaction_throughput= key_transaction["application_summary"]["throughput"]
-        metrics_map[instance_size]["API " + str(idx + 1)] = transaction_name
-        metrics_map[instance_size]["API " + str(idx + 1) + " RESPONSE TIME"] = transaction_response_time
-        metrics_map[instance_size]["API " + str(idx + 1) + " THROUGHPUT"] = transaction_throughput
+        api_details[transaction_name] = [transaction_response_time, transaction_throughput ];
+    metrics_map[instance_size]["api_details"] = api_details
     
     print "---\n"
     print metrics_map
@@ -144,14 +144,26 @@ def email_report():
     msg['From'] = fromaddr
     msg['To'] = toaddr
     msg['Subject'] = "Resource Analytics Monkey - Report"
-    body = "\n---------------------- Chaos Engineering Results ----------------------\n"
-    headings = ["INSTANCE TYPE", "ENDPOINT", "AVG RESPONSE TIME"]
-    data = []
+    body = "\n---------------------- Chaos Engineering Results ----------------------\n\n"
+    app_headings = ["INSTANCE TYPE", "APP RESPONSE TIME", "APP THROUGHPUT"]
+    app_data = []
+    api_headings = ["INSTANCE TYPE", "API ENDPOINT", "API RESPONSE TIME", "API THROUGHPUT"]
+    api_data = []
+
     for key in metrics_map:
-        for k in metrics_map[key]:
-            data.append([key, k, str(metrics_map[key][k])])
-    body += tabulate(data, headings, tablefmt="html")
-    print tabulate(data, headings, tablefmt="grid")
+        for api in key["api_details"]:
+            api_data.append([ key, str(api), str(key["api_details"][api][0]) , str(key["api_details"][api][1]) ])
+        app_data.append([ key, str(key["app_response_time"]), str(key["app_throughput"]) ])
+
+    print app_data
+    print api_data
+
+    body += tabulate(app_data, app_headings, tablefmt="html")
+    print tabulate(app_data, app_headings, tablefmt="grid")
+    body += "\n\n"
+    body += tabulate(api_data, api_headings, tablefmt="html")
+    print tabulate(api_data, api_headings, tablefmt="grid")
+
     msg.attach(MIMEText(body, 'html'))
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()

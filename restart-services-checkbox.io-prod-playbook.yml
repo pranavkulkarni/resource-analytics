@@ -26,6 +26,9 @@
         - "checkbox-io-dbserver"
 
   tasks:
+    - name: Restart local redis server
+      service: name=redis-server state=restarted enabled=yes
+
     - name: Restart nginx
       service: name=nginx state=restarted
 
@@ -38,7 +41,6 @@
         db_host: "{{ dbserver_ip }}"
       args:
         chdir: "{{ homeDir }}/{{ appDir }}"
-
 
 
 
