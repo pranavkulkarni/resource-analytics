@@ -66,6 +66,7 @@ def upsize(new_size):
     restart_services_server(target_server_ip)
     push_server_redis(target_server_ip)
 
+
 def downsize(new_size):
     target_server_ip = pop_server_redis()
     target_droplet_id = droplet_ids_map[target_server_ip]
@@ -76,8 +77,10 @@ def downsize(new_size):
     restart_services_server(target_server_ip)
     push_server_redis(target_server_ip)
 
+
 def pop_server_redis():
     return redis.lpop('prodServers')
+
 
 def push_server_redis(target_server_ip):
     redis.rpush('prodServers', target_server_ip)
@@ -86,7 +89,6 @@ def push_server_redis(target_server_ip):
 def poweroff_server(target_droplet_id):
     payload = { 'type': 'power_off' }
     r = requests.post("https://api.digitalocean.com/v2/droplets/" + str(target_droplet_id) + "/actions", headers = headers, json = payload);
-    print r.text
     action_id = json.loads(r.text)['action']['id']
     while True:
         time.sleep(2);
@@ -121,7 +123,7 @@ def collect_metrics(instance_size):
     response_time = json.loads(r.text)["applications"][0]["application_summary"]["response_time"]
     throughput = json.loads(r.text)["applications"][0]["application_summary"]["throughput"]
     apdex_score = json.loads(r.text)["applications"][0]["application_summary"]["apdex_score"]
-    metrics_map[instance_size] = {"app_response_time" : response_time, "app_throughput": throughput}
+    metrics_map[instance_size] = {"app_response_time" : response_time, "app_throughput": throughput, "apdex_score": apdex_score}
 
     r = requests.get("https://api.newrelic.com/v2/key_transactions.json", headers = header_new_relic);
     api_details = dict()
@@ -132,7 +134,7 @@ def collect_metrics(instance_size):
         api_details[transaction_name] = [transaction_response_time, transaction_throughput ];
     metrics_map[instance_size]["api_details"] = api_details
     
-    print "---\n"
+    print "Metrics Map \n"
     print metrics_map
     
     
@@ -144,23 +146,20 @@ def email_report():
     msg['From'] = fromaddr
     msg['To'] = toaddr
     msg['Subject'] = "Resource Analytics Monkey - Report"
-    body = "\n---------------------- Chaos Engineering Results ----------------------\n\n"
-    app_headings = ["INSTANCE TYPE", "APP RESPONSE TIME", "APP THROUGHPUT"]
+    body = "<h1>---------------------- Chaos Engineering Results ----------------------</h1>"
+    app_headings = ["INSTANCE TYPE", "APP RESPONSE TIME", "APP THROUGHPUT", "APDEX SCORE"]
     app_data = []
     api_headings = ["INSTANCE TYPE", "API ENDPOINT", "API RESPONSE TIME", "API THROUGHPUT"]
     api_data = []
 
     for key in metrics_map:
-        for api in key["api_details"]:
-            api_data.append([ key, str(api), str(key["api_details"][api][0]) , str(key["api_details"][api][1]) ])
-        app_data.append([ key, str(key["app_response_time"]), str(key["app_throughput"]) ])
-
-    print app_data
-    print api_data
+        for api in metrics_map[key]["api_details"]:
+            api_data.append([ key, str(api), str(metrics_map[key]["api_details"][api][0]) , str(metrics_map[key]["api_details"][api][1]) ])
+        app_data.append([ key, str(metrics_map[key]["app_response_time"]), str(metrics_map[key]["app_throughput"]), str(metrics_map[key]["apdex_score"]) ])
 
     body += tabulate(app_data, app_headings, tablefmt="html")
     print tabulate(app_data, app_headings, tablefmt="grid")
-    body += "\n\n"
+    body += "</br></br>"
     body += tabulate(api_data, api_headings, tablefmt="html")
     print tabulate(api_data, api_headings, tablefmt="grid")
 
@@ -174,6 +173,7 @@ def email_report():
     
 
 def main():
+    
     if len(sys.argv) < 1 :
         print "Usage: python monkey.py"
         exit(1)
@@ -185,29 +185,31 @@ def main():
     if number_active_prod_servers == 1:
         print('\nResource Analytics Monkey : ABORTED - Need more than 1 active prod server running!\n')
         exit(1)
-        
+    
+    time.sleep(240)
+    collect_metrics(steady_state_instance_size)
+
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 2] 
     for i in range(number_active_prod_servers):
         upsize(new_size)
 
-    time.sleep(180)
+    time.sleep(240)
     collect_metrics(new_size)
-    
     
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 1] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
 
-    time.sleep(180)
+    time.sleep(240)
     collect_metrics(new_size)
     
     
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size)] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
-
-    time.sleep(180)
-    collect_metrics(steady_state_instance_size)
+    
+    #global metrics_map
+    #metrics_map = {u'512mb': {'api_details': {u'get /api/study/listing': [10.8, 67.0], u'post /api/study/create': [0.0, 0.0]}, 'app_throughput': 134.0, 'app_response_time': 7.95}, '2gb': {'api_details': {u'get /api/study/listing': [9.02, 69.3], u'post /api/study/create': [50.0, 0.333]}, 'app_throughput': 117.0, 'app_response_time': 6.69}, '1gb': {'api_details': {u'get /api/study/listing': [13.0, 68.0], u'post /api/study/create': [30.5, 0.667]}, 'app_throughput': 109.0, 'app_response_time': 9.53}}
 
     email_report()
     
