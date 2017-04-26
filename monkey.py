@@ -131,7 +131,9 @@ def collect_metrics(instance_size):
         transaction_name = key_transaction["name"]
         transaction_response_time = key_transaction["application_summary"]["response_time"]
         transaction_throughput= key_transaction["application_summary"]["throughput"]
-        api_details[transaction_name] = [transaction_response_time, transaction_throughput ];
+        transaction_apdex_score= key_transaction["application_summary"]["apdex_score"]
+
+        api_details[transaction_name] = [transaction_response_time, transaction_throughput, transaction_apdex_score ];
     metrics_map[instance_size]["api_details"] = api_details
     
     print "Metrics Map \n"
@@ -149,12 +151,12 @@ def email_report():
     body = "<h1>---------------------- Chaos Engineering Results ----------------------</h1>"
     app_headings = ["INSTANCE TYPE", "APP RESPONSE TIME", "APP THROUGHPUT", "APDEX SCORE"]
     app_data = []
-    api_headings = ["INSTANCE TYPE", "API ENDPOINT", "API RESPONSE TIME", "API THROUGHPUT"]
+    api_headings = ["INSTANCE TYPE", "API ENDPOINT", "API RESPONSE TIME", "API THROUGHPUT", "API APDEX SCORE"]
     api_data = []
 
     for key in metrics_map:
         for api in metrics_map[key]["api_details"]:
-            api_data.append([ key, str(api), str(metrics_map[key]["api_details"][api][0]) , str(metrics_map[key]["api_details"][api][1]) ])
+            api_data.append([ key, str(api), str(metrics_map[key]["api_details"][api][0]) , str(metrics_map[key]["api_details"][api][1]), str(metrics_map[key]["api_details"][api][2]) ])
         app_data.append([ key, str(metrics_map[key]["app_response_time"]), str(metrics_map[key]["app_throughput"]), str(metrics_map[key]["apdex_score"]) ])
 
     body += tabulate(app_data, app_headings, tablefmt="html")
@@ -186,21 +188,21 @@ def main():
         print('\nResource Analytics Monkey : ABORTED - Need more than 1 active prod server running!\n')
         exit(1)
     
-    time.sleep(240)
+    time.sleep(180)
     collect_metrics(steady_state_instance_size)
 
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 2] 
     for i in range(number_active_prod_servers):
         upsize(new_size)
 
-    time.sleep(240)
+    time.sleep(180)
     collect_metrics(new_size)
     
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 1] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
 
-    time.sleep(240)
+    time.sleep(180)
     collect_metrics(new_size)
     
     
@@ -208,9 +210,6 @@ def main():
     for i in range(number_active_prod_servers):
         downsize(new_size)
     
-    #global metrics_map
-    #metrics_map = {u'512mb': {'api_details': {u'get /api/study/listing': [10.8, 67.0], u'post /api/study/create': [0.0, 0.0]}, 'app_throughput': 134.0, 'app_response_time': 7.95}, '2gb': {'api_details': {u'get /api/study/listing': [9.02, 69.3], u'post /api/study/create': [50.0, 0.333]}, 'app_throughput': 117.0, 'app_response_time': 6.69}, '1gb': {'api_details': {u'get /api/study/listing': [13.0, 68.0], u'post /api/study/create': [30.5, 0.667]}, 'app_throughput': 109.0, 'app_response_time': 9.53}}
-
     email_report()
     
     print('\nResource Analytics Monkey : COMPLETED\n');
