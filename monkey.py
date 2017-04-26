@@ -188,9 +188,6 @@ def main():
         print('\nResource Analytics Monkey : ABORTED - Need more than 1 active prod server running!\n')
         exit(1)
     
-    time.sleep(180)
-    collect_metrics(steady_state_instance_size)
-
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size) + 2] 
     for i in range(number_active_prod_servers):
         upsize(new_size)
@@ -205,10 +202,12 @@ def main():
     time.sleep(180)
     collect_metrics(new_size)
     
-    
     new_size = instance_sizes[instance_sizes.index(steady_state_instance_size)] 
     for i in range(number_active_prod_servers):
         downsize(new_size)
+
+    time.sleep(180)
+    collect_metrics(steady_state_instance_size)
     
     email_report()
     
